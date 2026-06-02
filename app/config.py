@@ -30,6 +30,25 @@ class Settings(BaseSettings):
         "LeadDiscoveryBot/1.0 (commercial lead tool; respects robots.txt)"
     )
 
+    # ── Claude AI ────────────────────────────────────────────────────────────
+    anthropic_api_key: str = ""
+    claude_model: str = "claude-opus-4-8"
+
+    # ── CRM Integrations ─────────────────────────────────────────────────────
+    hubspot_api_key: str = ""
+    salesforce_username: str = ""
+    salesforce_password: str = ""
+    salesforce_security_token: str = ""
+    salesforce_domain: str = "login"
+    pipedrive_api_token: str = ""
+    pipedrive_domain: str = ""
+
+    # ── Webhooks ─────────────────────────────────────────────────────────────
+    webhook_secret: str = ""
+
+    # ── Email Validation ─────────────────────────────────────────────────────
+    email_validation_enabled: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

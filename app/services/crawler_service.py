@@ -116,6 +116,77 @@ async def crawl_website(base_url: str) -> list[CrawlResult]:
     return results
 
 
+async def crawl_website_js(base_url: str) -> list[CrawlResult]:
+    """Crawl a JS-heavy website using Playwright (headless Chromium).
+
+    Falls back to the standard httpx crawler if Playwright is not installed.
+    Only fetches the root and discovered priority pages (max_pages_per_domain).
+    """
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError:
+        log.warning("playwright_not_installed", fallback="httpx")
+        return await crawl_website(base_url)
+
+    if not base_url.startswith("http"):
+        base_url = f"https://{base_url}"
+
+    parsed = urlparse(base_url)
+    origin = f"{parsed.scheme}://{parsed.netloc}"
+    robots = await _fetch_robots(origin)
+    results: list[CrawlResult] = []
+    visited: set[str] = set()
+
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        context = await browser.new_context(
+            user_agent=settings.crawler_user_agent,
+            java_script_enabled=True,
+        )
+        page = await context.new_page()
+        queue: list[str] = [base_url]
+
+        while queue and len(results) < settings.max_pages_per_domain:
+            url = queue.pop(0)
+            if url in visited:
+                continue
+            visited.add(url)
+            if _is_blocked_path(url):
+                continue
+            if not _robots_allows(robots, url, settings.crawler_user_agent):
+                results.append(CrawlResult(url, None, "", "", robots_allowed=False))
+                continue
+            try:
+                response = await page.goto(url, wait_until="networkidle", timeout=15000)
+                status = response.status if response else None
+                title = await page.title()
+                content = await page.content()
+                soup = BeautifulSoup(content, "lxml")
+                for tag in soup(["script", "style", "nav", "footer", "header"]):
+                    tag.decompose()
+                text = " ".join(soup.get_text(separator=" ", strip=True).split())[:2000]
+                results.append(CrawlResult(url, status, title, text, robots_allowed=True))
+
+                if status == 200 and len(results) < settings.max_pages_per_domain:
+                    links = await page.eval_on_selector_all(
+                        "a[href]", "els => els.map(e => e.href)"
+                    )
+                    for href in links:
+                        if href.startswith(origin) and href not in visited:
+                            if _is_priority_path(href):
+                                queue.insert(0, href)
+                            else:
+                                queue.append(href)
+            except Exception as exc:
+                log.warning("playwright_crawl_error", url=url, error=str(exc))
+                results.append(CrawlResult(url, None, "", "", robots_allowed=True))
+            await asyncio.sleep(0.5)
+
+        await browser.close()
+
+    return results
+
+
 def _parse_response(url: str, resp: httpx.Response) -> CrawlResult:
     soup = BeautifulSoup(resp.text, "lxml")
     title = (soup.find("title") or "").get_text(strip=True) if soup.find("title") else ""

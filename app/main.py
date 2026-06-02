@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
-from app.api import candidates, companies, exports, reviews, searches
+from app.api import analytics, batch, candidates, companies, exports, reviews, searches, webhooks
 from app.config import settings
 
 log = structlog.get_logger()
@@ -41,6 +41,9 @@ app.include_router(companies.router, tags=["companies"])
 app.include_router(reviews.router, prefix="/companies", tags=["review-actions"])
 app.include_router(candidates.router, tags=["candidates"])
 app.include_router(exports.router, tags=["export"])
+app.include_router(batch.router, tags=["batch"])
+app.include_router(webhooks.router, tags=["webhooks"])
+app.include_router(analytics.router, tags=["analytics"])
 
 
 @app.get("/health")
