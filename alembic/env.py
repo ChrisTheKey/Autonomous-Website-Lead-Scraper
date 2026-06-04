@@ -15,9 +15,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Override sqlalchemy.url from .env
+# Override sqlalchemy.url from .env — strip sslmode (asyncpg uses connect_args)
 db_url = os.getenv("DATABASE_URL", "")
 if db_url:
+    for _p in ("?sslmode=require", "&sslmode=require", "?ssl=true", "&ssl=true"):
+        db_url = db_url.replace(_p, "")
     config.set_main_option("sqlalchemy.url", db_url)
 
 # Import all models to register them
@@ -56,6 +58,7 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"ssl": "require"} if os.getenv("DATABASE_URL", "") and "neon.tech" in os.getenv("DATABASE_URL", "") else {},
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
