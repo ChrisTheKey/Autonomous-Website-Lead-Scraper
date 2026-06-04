@@ -15,7 +15,7 @@ class AuditLog(Base):
     entity_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     actor: Mapped[str] = mapped_column(String(255), default="system")
-    metadata: Mapped[dict | None] = mapped_column(JSONB)
+    extra: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
