@@ -102,7 +102,7 @@ async def get_overview(db: DbDep) -> AnalyticsOverview:
 
 
 @router.get("/top-industries", response_model=list[IndustryCounts])
-async def top_industries(limit: int = 20, db: DbDep = Depends(get_db)) -> list[IndustryCounts]:
+async def top_industries(limit: int = 20, db: AsyncSession = Depends(get_db)) -> list[IndustryCounts]:
     result = await db.execute(
         select(Company.industry, func.count(Company.id).label("cnt"))
         .group_by(Company.industry)
@@ -113,7 +113,7 @@ async def top_industries(limit: int = 20, db: DbDep = Depends(get_db)) -> list[I
 
 
 @router.get("/search-performance", response_model=list[SearchPerformance])
-async def search_performance(limit: int = 50, db: DbDep = Depends(get_db)) -> list[SearchPerformance]:
+async def search_performance(limit: int = 50, db: AsyncSession = Depends(get_db)) -> list[SearchPerformance]:
     result = await db.execute(
         select(Search).order_by(Search.created_at.desc()).limit(limit)
     )
@@ -132,7 +132,7 @@ async def search_performance(limit: int = 50, db: DbDep = Depends(get_db)) -> li
 
 
 @router.get("/ai-score-histogram", response_model=list[ScoreBucket])
-async def score_histogram(db: DbDep = Depends(get_db)) -> list[ScoreBucket]:
+async def score_histogram(db: AsyncSession = Depends(get_db)) -> list[ScoreBucket]:
     result = await db.execute(select(Company.website_opportunity_score))
     scores = [row[0] for row in result.all() if row[0] is not None]
 
