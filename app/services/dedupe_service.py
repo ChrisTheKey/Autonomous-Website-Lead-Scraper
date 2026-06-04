@@ -19,7 +19,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.company import Company
-from app.services.compliance_service import write_audit
 
 
 def normalize_name(name: str) -> str:
@@ -97,6 +96,7 @@ async def merge_into(
             changed[field] = value
 
     if changed:
+        from app.services.compliance_service import write_audit
         await write_audit(db, "company", existing.id, "dedupe_merge", metadata={"merged": changed})
 
     return existing
