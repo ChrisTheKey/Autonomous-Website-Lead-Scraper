@@ -1,6 +1,3 @@
-import asyncio
-from functools import partial
-
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +8,11 @@ from app.schemas.search import SearchCreate, SearchOut
 from app.workers.tasks import run_search_task
 
 router = APIRouter()
+
+
+def _dispatch_search(search_id: int) -> None:
+    """Fire-and-forget Celery dispatch (runs in BackgroundTask after response sent)."""
+    run_search_task.delay(search_id)
 
 
 @router.post("/search", response_model=SearchOut, status_code=202)
@@ -33,9 +35,8 @@ async def create_search(
     await db.commit()
     await db.refresh(search)
 
-    # Dispatch async task (run in thread to avoid blocking the event loop)
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, partial(run_search_task.delay, search.id))
+    # Dispatch after response is sent so the client isn't blocked by Redis latency
+    background_tasks.add_task(_dispatch_search, search.id)
 
     return search
 
