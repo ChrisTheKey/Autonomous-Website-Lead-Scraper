@@ -1,0 +1,14 @@
+[Unit]
+Description=Autonomous Lead Scraper API
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=chris
+WorkingDirectory=/home/chris/Autonomous-Website-Lead-Scraper
+ExecStart=/home/chris/Autonomous-Website-Lead-Scraper/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
