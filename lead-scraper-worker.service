@@ -1,0 +1,15 @@
+[Unit]
+Description=Autonomous Lead Scraper Celery Worker
+After=network.target postgresql.service lead-scraper.service
+
+[Service]
+Type=simple
+User=chris
+WorkingDirectory=/home/chris/Autonomous-Website-Lead-Scraper
+Environment=PYTHONPATH=/home/chris/Autonomous-Website-Lead-Scraper
+ExecStart=/home/chris/Autonomous-Website-Lead-Scraper/venv/bin/celery -A app.workers.tasks worker --loglevel=info -Q celery,search,crawl,analyse,refresh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
