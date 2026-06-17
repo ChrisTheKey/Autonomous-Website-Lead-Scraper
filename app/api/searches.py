@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,11 +10,16 @@ from app.schemas.search import SearchCreate, SearchOut
 from app.workers.tasks import run_search_task
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 def _dispatch_search(search_id: int) -> None:
     """Fire-and-forget Celery dispatch (runs in BackgroundTask after response sent)."""
-    run_search_task.delay(search_id)
+    try:
+        result = run_search_task.delay(search_id)
+        log.info("Dispatched run_search_task id=%s task_id=%s", search_id, result.id)
+    except Exception as exc:
+        log.exception("Failed to dispatch run_search_task id=%s: %s", search_id, exc)
 
 
 @router.post("/search", response_model=SearchOut, status_code=202)
