@@ -8,22 +8,35 @@ from __future__ import annotations
 
 import asyncio
 import ssl
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 import structlog
 from celery import Celery
 
 from app.config import settings
 
+
+def _clean_redis_url(url: str) -> str:
+    """Strip SSL query params from URL; SSL is controlled via broker_use_ssl."""
+    parsed = urlparse(url)
+    params = {k: v[0] for k, v in parse_qs(parsed.query).items()
+              if k not in ("ssl_cert_reqs", "ssl")}
+    return urlunparse(parsed._replace(query=urlencode(params)))
+
+
+_is_rediss = settings.celery_broker_url.startswith("rediss://")
+_broker_url = _clean_redis_url(settings.celery_broker_url) if _is_rediss else settings.celery_broker_url
+_backend_url = _clean_redis_url(settings.celery_result_backend) if settings.celery_result_backend.startswith("rediss://") else settings.celery_result_backend
+_ssl_opts = {"ssl_cert_reqs": ssl.CERT_NONE} if _is_rediss else {}
+
 log = structlog.get_logger()
 
 celery_app = Celery(
     "lead_discovery",
-    broker=settings.celery_broker_url,
-    backend=settings.celery_result_backend,
+    broker=_broker_url,
+    backend=_backend_url,
     include=["app.workers.tasks"],
 )
-
-_ssl_opts = {"ssl_cert_reqs": ssl.CERT_NONE} if settings.celery_broker_url.startswith("rediss://") else {}
 
 celery_app.conf.update(
     task_serializer="json",
@@ -33,8 +46,8 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
     worker_prefetch_multiplier=1,
-    broker_use_ssl=_ssl_opts if _ssl_opts else None,
-    redis_backend_use_ssl=_ssl_opts if _ssl_opts else None,
+    broker_use_ssl=_ssl_opts or None,
+    redis_backend_use_ssl=_ssl_opts or None,
     task_routes={
         "app.workers.tasks.run_search_task": {"queue": "search"},
         "app.workers.tasks.crawl_company_task": {"queue": "crawl"},
