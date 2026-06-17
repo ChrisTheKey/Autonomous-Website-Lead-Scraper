@@ -22,6 +22,8 @@ celery_app = Celery(
     include=["app.workers.tasks"],
 )
 
+_ssl_opts = {"ssl_cert_reqs": "CERT_NONE"} if settings.celery_broker_url.startswith("rediss://") else {}
+
 celery_app.conf.update(
     task_serializer="json",
     result_serializer="json",
@@ -30,6 +32,8 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
     worker_prefetch_multiplier=1,
+    broker_use_ssl=_ssl_opts if _ssl_opts else None,
+    redis_backend_use_ssl=_ssl_opts if _ssl_opts else None,
     task_routes={
         "app.workers.tasks.run_search_task": {"queue": "search"},
         "app.workers.tasks.crawl_company_task": {"queue": "crawl"},
