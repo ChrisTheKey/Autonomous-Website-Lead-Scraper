@@ -57,24 +57,42 @@ celery_app.conf.update(
 )
 
 
+async def _reset_db_engine() -> None:
+    """Dispose the module-level engine so the current event loop gets fresh connections."""
+    from app.database import engine
+    await engine.dispose()
+
+
 @celery_app.task(bind=True, name="run_search_task", max_retries=2)
 def run_search_task(self, search_id: int) -> dict:
-    return asyncio.run(_run_search(search_id))
+    async def _run():
+        await _reset_db_engine()
+        return await _run_search(search_id)
+    return asyncio.run(_run())
 
 
 @celery_app.task(bind=True, name="crawl_company_task", max_retries=3)
 def crawl_company_task(self, company_id: int) -> dict:
-    return asyncio.run(_crawl_company(company_id))
+    async def _run():
+        await _reset_db_engine()
+        return await _crawl_company(company_id)
+    return asyncio.run(_run())
 
 
 @celery_app.task(bind=True, name="analyse_website_task", max_retries=2)
 def analyse_website_task(self, company_id: int) -> dict:
-    return asyncio.run(_analyse_website(company_id))
+    async def _run():
+        await _reset_db_engine()
+        return await _analyse_website(company_id)
+    return asyncio.run(_run())
 
 
 @celery_app.task(bind=True, name="refresh_company_task", max_retries=3)
 def refresh_company_task(self, company_id: int) -> dict:
-    return asyncio.run(_refresh_company(company_id))
+    async def _run():
+        await _reset_db_engine()
+        return await _refresh_company(company_id)
+    return asyncio.run(_run())
 
 
 # ── Async implementations ─────────────────────────────────────────────────────
