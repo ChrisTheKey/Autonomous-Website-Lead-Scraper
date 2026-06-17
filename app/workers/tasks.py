@@ -7,6 +7,7 @@ Each task is idempotent and writes audit logs on completion/failure.
 from __future__ import annotations
 
 import asyncio
+import ssl
 
 import structlog
 from celery import Celery
@@ -22,7 +23,7 @@ celery_app = Celery(
     include=["app.workers.tasks"],
 )
 
-_ssl_opts = {"ssl_cert_reqs": "CERT_NONE"} if settings.celery_broker_url.startswith("rediss://") else {}
+_ssl_opts = {"ssl_cert_reqs": ssl.CERT_NONE} if settings.celery_broker_url.startswith("rediss://") else {}
 
 celery_app.conf.update(
     task_serializer="json",
