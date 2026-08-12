@@ -2,8 +2,9 @@
 Bern — Innendekorateure / Innenarchitekten
 ===========================================
 Google Places API → alle Treffer in Bern
-ScrapeGraphAI + Claude → Inhaber-Name + E-Mail
-Export → Excel + CSV
+Claude API        → Inhaber-Name (aus HTML extrahiert, kein Regex-Raten)
+Regex             → E-Mail (zuverlässig per Pattern)
+Export            → Excel + CSV
 
 Ausführen:
     cd ~/Autonomous-Website-Lead-Scraper
@@ -28,10 +29,13 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 import os
-GOOGLE_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
+GOOGLE_KEY    = os.getenv("GOOGLE_MAPS_API_KEY", "")
+ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 if not GOOGLE_KEY:
     print("FEHLER: GOOGLE_MAPS_API_KEY fehlt in .env")
     sys.exit(1)
+if not ANTHROPIC_KEY:
+    print("WARNUNG: ANTHROPIC_API_KEY fehlt — Inhabernamen werden nicht extrahiert")
 
 try:
     import openpyxl
@@ -139,63 +143,19 @@ def places_search(query: str) -> list[dict]:
 
     return all_places
 
-# ── ScrapeGraphAI Kontaktextraktion ──────────────────────────────────────────
-SCRAPE_PROMPT = """
-Du analysierst die Website eines Schweizer Innendekorateurs / Innenarchitekten.
-Extrahiere NUR Daten die DIREKT auf der Seite stehen — keine Erfindungen.
-
-Gib zurück:
-- email: geschäftliche E-Mail-Adresse (kein noreply/example)
-- vorname: Vorname des Inhabers / Geschäftsführers
-- nachname: Nachname des Inhabers / Geschäftsführers
-- rolle: Funktion (z.B. "Inhaberin", "Geschäftsführer", "Gründerin")
-
-Falls nicht gefunden → leerer String.
-"""
-
-async def extract_contact_scrapegraph(url: str) -> tuple[str,str,str,str]:
-    """Gibt (email, vorname, nachname, rolle) zurück."""
-    try:
-        from app.services.scrapegraph_service import extract_contact
-        r = await extract_contact(url, timeout=35)
-        return r.email, r.vorname, r.nachname, r.role
-    except Exception:
-        pass
-    return await _fallback_html(url)
-
-async def _fallback_html(url: str) -> tuple[str,str,str,str]:
-    import httpx
-    EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
-    NAME_RE  = re.compile(
-        r"(?:Inhaber(?:in)?|Geschäftsführer(?:in)?|Gründer(?:in)?|Eigentümer(?:in)?|Chef(?:in)?|Leiter(?:in)?|Kontakt)"
-        r"\s*[:\-]?\s*([A-ZÄÖÜ][a-zäöü]+\s+[A-ZÄÖÜ][a-zäöüß\-]+)",
-        re.MULTILINE
+# ── Kontaktextraktion via Claude ─────────────────────────────────────────────
+async def extract_contact_claude(url: str, company_name: str) -> tuple[str,str,str,str]:
+    """
+    Gibt (email, vorname, nachname, rolle) zurück.
+    Claude liest den Website-Text und extrahiert den echten Inhabernamen.
+    """
+    from app.services.contact_extractor import extract_contact
+    result = await extract_contact(
+        url=url,
+        company_name=company_name,
+        anthropic_api_key=ANTHROPIC_KEY,
     )
-    base  = url.rstrip("/")
-    pages = [base, base+"/kontakt", base+"/contact", base+"/ueber-uns", base+"/about", base+"/team"]
-    email = vorname = nachname = rolle = ""
-    try:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True, verify=False) as client:
-            for pg in pages:
-                try:
-                    r    = await client.get(pg, headers={"User-Agent":"Mozilla/5.0"})
-                    text = r.text
-                    if not email:
-                        for m in EMAIL_RE.findall(text):
-                            if not any(s in m.lower() for s in ("noreply","example","test@","sentry")):
-                                email = m; break
-                    if not vorname:
-                        m2 = NAME_RE.search(re.sub(r"<[^>]+>"," ",text))
-                        if m2:
-                            parts = m2.group(1).split()
-                            vorname  = parts[0]
-                            nachname = " ".join(parts[1:])
-                    if email and vorname: break
-                except Exception:
-                    continue
-    except Exception:
-        pass
-    return email, vorname, nachname, rolle
+    return result.email, result.vorname, result.nachname, result.rolle
 
 # ── Excel-Export ─────────────────────────────────────────────────────────────
 def _side(c="BDD7EE"): return Side(style="thin",color=c)
@@ -350,7 +310,7 @@ async def main():
         ws = lead.get("website","")
         print(f"  [{i:>2}/{len(leads)}] {lead['name'][:40]:<40}", end="", flush=True)
         if ws:
-            em, vor, nach, rolle = await extract_contact_scrapegraph(ws)
+            em, vor, nach, rolle = await extract_contact_claude(ws, lead["name"])
             lead["email"]   = em
             lead["vorname"] = vor
             lead["nachname"]= nach
