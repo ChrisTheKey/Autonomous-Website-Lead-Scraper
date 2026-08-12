@@ -1,14 +1,14 @@
 """
 Bern 100 Leads — 10 Branchen × 10 Kontakte
 ============================================
-Scraper für echte Bern-Leads mit Kontaktdaten.
-- Google Places API (New) → Basisdaten + Telefon + Website
-- Website-Crawling → E-Mail + Ansprechperson (Vorname/Name)
-- Opportunity-Scoring: kein/schwaches Website → hoher Score
-- Export: Excel mit Name, Vorname, Telefon, Website, E-Mail
+- Google Places API (New)  → Basisdaten + Telefon + Website
+- ScrapeGraphAI + Claude   → E-Mail + Ansprechperson (Vorname/Name)
+- Opportunity-Scoring      → kein/schwaches Website → hoher Score
+- Export                   → Excel mit allen Kontaktfeldern
 
-Ausführen (auf Minisforum mit API-Keys):
+Ausführen:
     cd ~/Autonomous-Website-Lead-Scraper
+    source venv/bin/activate
     python scripts/bern_100_leads_kontakte.py
 """
 
@@ -190,12 +190,24 @@ JUNK_NAMES = {
 
 def crawl_contact(url: str, timeout: int = 10) -> tuple[str, str, str]:
     """
-    Crawlt Startseite + /kontakt + /ueber-uns des Unternehmens.
-    Gibt (email, vorname, nachname) zurück — leer wenn nicht gefunden.
+    Extrahiert Kontaktdaten von einer Website.
+    Versucht zuerst ScrapeGraphAI (Claude-powered), fällt auf HTML-Parsing zurück.
+    Gibt (email, vorname, nachname) zurück.
     """
     if not url:
         return "", "", ""
 
+    # ScrapeGraphAI versuchen (braucht ANTHROPIC_API_KEY)
+    try:
+        import asyncio
+        from app.services.scrapegraph_service import extract_contact
+        result = asyncio.run(extract_contact(url, timeout=timeout))
+        if result.email or result.vorname:
+            return result.email, result.vorname, result.nachname
+    except Exception:
+        pass
+
+    # Fallback: direktes HTML-Parsing
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
@@ -204,43 +216,25 @@ def crawl_contact(url: str, timeout: int = 10) -> tuple[str, str, str]:
     pages_to_try = [base, base + "/kontakt", base + "/contact",
                     base + "/ueber-uns", base + "/about", base + "/team"]
 
-    found_email = ""
-    found_vorname = ""
-    found_nachname = ""
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; LeadBot/1.0)",
-        "Accept": "text/html",
-        "Accept-Language": "de-CH,de;q=0.9",
-    }
+    found_email = found_vorname = found_nachname = ""
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; LeadBot/1.0)",
+               "Accept": "text/html", "Accept-Language": "de-CH,de;q=0.9"}
 
     for page_url in pages_to_try:
         try:
             req = urllib.request.Request(page_url, headers=headers)
             with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
-                raw = r.read(80_000)  # max 80 KB
-                try:
-                    html = raw.decode("utf-8", errors="replace")
-                except Exception:
-                    html = raw.decode("latin-1", errors="replace")
+                raw = r.read(80_000)
+                html = raw.decode("utf-8", errors="replace")
         except Exception:
             continue
 
-        # E-Mail
         if not found_email:
-            emails = EMAIL_RE.findall(html)
-            for em in emails:
-                em_low = em.lower()
-                if any(skip in em_low for skip in ("example", "noreply", "no-reply",
-                                                    "placeholder", "test@", "@test",
-                                                    "info@example", "@sentry")):
-                    continue
-                found_email = em
-                break
+            for em in EMAIL_RE.findall(html):
+                if not any(s in em.lower() for s in ("example","noreply","no-reply","test@","@sentry")):
+                    found_email = em; break
 
-        # Personenname
         if not found_vorname:
-            # HTML-Tags vereinfachen
             plain = re.sub(r"<[^>]+>", " ", html)
             plain = re.sub(r"&[a-z]+;", " ", plain)
             plain = re.sub(r"\s+", " ", plain)
@@ -257,9 +251,8 @@ def crawl_contact(url: str, timeout: int = 10) -> tuple[str, str, str]:
                         break
 
         if found_email and found_vorname:
-            break  # Genug gefunden
-
-        time.sleep(0.4)  # Nicht zu schnell crawlen
+            break
+        time.sleep(0.4)
 
     return found_email, found_vorname, found_nachname
 
