@@ -1,0 +1,110 @@
+Autonomous-Website-Lead-Scraper/
+│
+├── CLAUDE.md                          # Claude Code Projektanleitung
+├── README.md                          # Projektdokumentation
+├── Dockerfile                         # Docker-Image (python:3.11-slim)
+├── docker-compose.yml                 # Full-Stack: postgres, redis, api, 3 workers, flower
+├── requirements.txt                   # Python-Abhängigkeiten (Produktion)
+├── alembic.ini                        # Datenbankmigrations-Konfiguration
+├── .env.example                       # Vorlage für Umgebungsvariablen (keine Werte)
+├── setup.sh                           # Einmaliger Setup-Script
+├── lead-scraper.service               # Systemd: FastAPI API (Port 8000)
+├── lead-scraper-worker.service        # Systemd: Celery Worker
+├── export_leads.py                    # Root: CSV-Export für Outreach-Agent
+├── trigger_enrichment.py             # Root: Celery-Chain-Trigger (crawl→analyse)
+│
+├── app/                               # KERN-APPLIKATION (produktionsreif)
+│   ├── main.py                        # FastAPI App + HTML-Dashboard + /health
+│   ├── config.py                      # Einstellungen via Pydantic BaseSettings
+│   ├── database.py                    # Async SQLAlchemy Engine (asyncpg)
+│   │
+│   ├── api/                           # FastAPI Router
+│   │   ├── searches.py                # POST /search, GET /searches
+│   │   ├── companies.py               # GET/PATCH /companies, /verify, /ai-analyse
+│   │   ├── candidates.py              # GET /candidates
+│   │   ├── batch.py                   # POST /batch/verify, /batch/ai-analyse
+│   │   ├── exports.py                 # GET /export/csv
+│   │   ├── reviews.py                 # GET /reviews
+│   │   ├── webhooks.py                # GET/POST /webhooks
+│   │   └── analytics.py              # GET /analytics/overview, /top-industries
+│   │
+│   ├── models/                        # SQLAlchemy ORM-Modelle (PostgreSQL)
+│   │   ├── enums.py                   # LeadType, CompanyStatus, LeadPriority etc.
+│   │   ├── company.py                 # Hauptentität: Firma + Lead-Felder
+│   │   ├── search.py                  # Suchanfragen-Protokoll
+│   │   ├── contact.py                 # Ansprechpersonen (persönliche Daten)
+│   │   ├── place_candidate.py         # Google-Places-Cache (SHA256 statt Rohdaten)
+│   │   ├── crawled_page.py            # Gecrawlte Website-Seiten
+│   │   ├── audit_log.py               # Unveränderliches Audit-Log
+│   │   └── suppression.py            # DSGVO-Sperrliste
+│   │
+│   ├── schemas/                       # Pydantic Ein-/Ausgabe-Schemas
+│   │   ├── company.py
+│   │   ├── contact.py
+│   │   ├── search.py
+│   │   └── export.py
+│   │
+│   ├── services/                      # Geschäftslogik
+│   │   ├── ai_service.py              # Claude API: Scoring + Kontakt-Klassifikation
+│   │   ├── contact_extractor.py       # Claude API: Inhabername aus Website-HTML
+│   │   ├── scrapegraph_service.py     # ScrapeGraphAI (experimentell, Fallback)
+│   │   ├── crawler_service.py         # Ethischer Webcrawler (robots.txt, httpx/Playwright)
+│   │   ├── extractor_service.py       # HTML-Parser: Telefon, E-Mail (kein Raten)
+│   │   ├── places_service.py          # Google Places API (New): searchText
+│   │   ├── scoring_service.py         # Deterministisches Scoring 0–100
+│   │   ├── search_orchestrator.py     # Orchestrierung: Places→Dedupe→Score→DB
+│   │   ├── dedupe_service.py          # Deduplizierung (place_id, domain, phone, name)
+│   │   ├── website_detection_service.py  # LeadType-Klassifikation (no/social/weak/ok)
+│   │   ├── website_quality_service.py    # Website-Qualitätsprüfung (HTTPS, mobile etc.)
+│   │   ├── compliance_service.py      # Export-Gate + Audit-Log + DSGVO-Prüfung
+│   │   ├── export_service.py          # CSV-Export (nur verified + can_export=True)
+│   │   ├── email_validation_service.py   # DNS MX + Syntax-Prüfung
+│   │   ├── crm_service.py             # HubSpot / Salesforce / Pipedrive Push
+│   │   └── webhook_service.py         # Ausgehende Webhooks (HMAC-SHA256)
+│   │
+│   └── workers/
+│       └── tasks.py                   # Celery Tasks: search, crawl, analyse, refresh
+│
+├── scripts/                           # Standalone-Skripte (kein laufender Server nötig*)
+│   ├── bern_innendekorateure.py       # ★ Aktiv: Bern Innendekorateure Scraper
+│   ├── bern_100_leads_kontakte.py     # Bern 10 Branchen × 10 Kontakte
+│   ├── bern_weak_website_leads.py     # Bern schwache Websites (via lokale API)
+│   ├── build_100_leads.py             # 100-Lead CSV via lokale API
+│   ├── daily_scrape.py                # Täglicher Scraper (Rotation 35 Branchen)
+│   └── daily_pipeline.sh             # Cron: scrape→enrichment→export→outreach-trigger
+│
+├── alembic/                           # Datenbankmigrationen
+│   └── versions/
+│       └── 0001_initial_schema.py     # Alle 7 Tabellen + Enums
+│
+├── tests/                             # Pytest Tests (kein API-Call nötig)
+│   ├── conftest.py
+│   ├── test_classification.py
+│   ├── test_compliance.py
+│   ├── test_crawler.py
+│   ├── test_dedupe.py
+│   ├── test_extractor.py
+│   ├── test_places_service.py
+│   ├── test_scoring.py
+│   └── test_suppression.py
+│
+├── exports/                           # Generierte Output-Dateien (nicht im Repo)
+│   ├── bern_innendekorateure.xlsx     # Letzter Scraping-Run (64 Leads, 19 KB)
+│   └── bern_innendekorateure.csv      # CSV-Version (9.3 KB)
+│
+├── backend/                           # EXPERIMENTELLER PARALLELSTACK (nicht produktiv)
+│   ├── app/ai/                        # LangChain, LlamaIndex, OpenAI Agents, Pydantic AI
+│   ├── app/scrapers/                  # Scrapy Spider + Middlewares
+│   ├── app/tasks/                     # Separater Celery App
+│   ├── app/workflows/                 # Temporal-Workflow
+│   ├── dags/                          # Apache Airflow DAG
+│   ├── dashboard.py                   # Streamlit Dashboard
+│   └── requirements.txt              # Eigene Abhängigkeiten (openai, langchain etc.)
+│
+└── frontend/                          # EXPERIMENTELLES Next.js Frontend (nicht produktiv)
+    ├── app/                           # Next.js App Router
+    ├── components/                    # LeadTable, MapsSearch, ScrapeForm
+    └── lib/                           # API-Client, Utils
+
+* bern_innendekorateure.py und bern_100_leads_kontakte.py sind direkt ausführbar
+  (brauchen nur GOOGLE_MAPS_API_KEY + ANTHROPIC_API_KEY als Umgebungsvariablen)
