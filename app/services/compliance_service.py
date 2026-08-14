@@ -90,7 +90,7 @@ async def write_audit(
         entity_id=entity_id,
         action=action,
         actor=actor,
-        metadata=metadata or {},
+        event_metadata=metadata or {},
     )
     db.add(log_entry)
     await db.flush()
