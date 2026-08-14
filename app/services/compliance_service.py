@@ -22,7 +22,7 @@ from app.models.company import Company
 from app.models.contact import Contact
 from app.models.enums import CompanyStatus, LeadType
 from app.models.suppression import SuppressionEntry
-from app.services.dedupe_service import normalize_phone
+from app.services.normalization import normalize_phone
 
 
 async def evaluate_can_export(company: Company, db: AsyncSession) -> tuple[bool, str | None]:
