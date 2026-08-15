@@ -38,7 +38,7 @@ app.add_middleware(
 # Routes
 app.include_router(searches.router, tags=["search"])
 app.include_router(companies.router, tags=["companies"])
-app.include_router(reviews.router, prefix="/companies", tags=["review-actions"])
+app.include_router(reviews.router, tags=["review-actions"])
 app.include_router(candidates.router, tags=["candidates"])
 app.include_router(exports.router, tags=["export"])
 
