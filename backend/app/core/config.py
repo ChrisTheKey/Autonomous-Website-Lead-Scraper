@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
 
+    # ScrapeGraphAI
+    # Model may carry a provider prefix ("openai/gpt-4o-mini"); "openai/" is assumed if absent.
+    scrapegraph_model: str = "openai/gpt-4o-mini"
+    scrapegraph_headless: bool = True
+    scrapegraph_verbose: bool = False
+    scrapegraph_timeout: int = 120
+    scrapegraph_max_results: int = 3
+    scrapegraph_respect_robots: bool = True
+
     # Google Maps
     google_maps_api_key: str = ""
 

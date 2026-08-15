@@ -4,7 +4,7 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import google_maps, leads, scraper, crm, ai_extract
+from app.api.routes import ai_extract, crm, google_maps, leads, scrapegraph, scraper
 from app.core.config import settings
 
 log = structlog.get_logger()
@@ -34,6 +34,7 @@ app.add_middleware(
 app.include_router(leads.router, prefix="/api/leads", tags=["leads"])
 app.include_router(scraper.router, prefix="/api/scraper", tags=["scraper"])
 app.include_router(ai_extract.router, prefix="/api/ai", tags=["ai"])
+app.include_router(scrapegraph.router, prefix="/api/scrapegraph", tags=["scrapegraph"])
 app.include_router(google_maps.router, prefix="/api/maps", tags=["maps"])
 app.include_router(crm.router, prefix="/api/crm", tags=["crm"])
 

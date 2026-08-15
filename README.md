@@ -147,6 +147,48 @@ deduplication, Places API (mocked), crawler robots.txt, extractor invariants.
 
 ---
 
+## ScrapeGraphAI (LLM-driven scraping)
+
+Lives in the `backend/` stack alongside the Scrapy spider and the Playwright client.
+Instead of hand-written selectors, a prompt plus a Pydantic schema (`ScrapedLead`)
+drive the extraction, so a layout change does not break the pipeline.
+
+```bash
+cd backend
+pip install -r requirements.txt
+playwright install chromium      # ScrapeGraphAI renders pages via Chromium
+```
+
+Set `OPENAI_API_KEY` and the `SCRAPEGRAPH_*` values from `.env.example`.
+
+| Endpoint | Graph | Purpose |
+|---|---|---|
+| `POST /api/scrapegraph/scrape` | `SmartScraperGraph` | One URL → one structured lead |
+| `POST /api/scrapegraph/scrape-many` | `SmartScraperMultiGraph` | Up to 20 URLs in one run |
+| `POST /api/scrapegraph/search` | `SearchGraph` | Web search → leads + `considered_urls` |
+| `POST /api/scrapegraph/tasks` | `SmartScraperGraph` | Same, async via Celery, persists the lead |
+
+```bash
+curl -X POST http://localhost:8000/api/scrapegraph/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com"}'
+```
+
+`app.ai.scrapegraph_client` is also usable directly:
+`scrape_lead(url)`, `scrape_lead_from_html(html, url)` (reuses HTML already fetched by
+Playwright, so no second request hits the site), `scrape_leads(urls)`, `search_leads(query)`.
+
+Boundaries kept intact:
+- robots.txt is checked before any graph fetches a URL (`SCRAPEGRAPH_RESPECT_ROBOTS`);
+  disallowed URLs raise `RobotsDisallowedError` (HTTP 403) and are skipped in batches.
+- The prompt forbids guessing — unstated fields stay `null`, no invented emails or names.
+- `SearchGraph` picks its own sources, so it is exposed for research; review the
+  `considered_urls` before persisting anything from it.
+- The dependency is imported lazily; without it installed the API answers HTTP 501
+  instead of crashing at startup.
+
+---
+
 ## Compliance Architecture
 
 Every action (verify, reject, contact, suppress, export) writes to `audit_logs`.
