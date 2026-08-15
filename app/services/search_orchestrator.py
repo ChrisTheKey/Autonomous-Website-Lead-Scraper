@@ -29,7 +29,11 @@ from app.services.dedupe_service import (
 )
 from app.services.places_service import PlaceResult, search_places
 from app.services.scoring_service import ScoreInput, calculate_score
-from app.services.website_detection_service import classify_from_place, normalize_domain
+from app.services.website_detection_service import (
+    classify_from_place,
+    matches_target,
+    normalize_domain,
+)
 
 log = structlog.get_logger()
 
@@ -55,8 +59,7 @@ async def run_search(search: Search, db: AsyncSession) -> int:
 
         lead_type, enrichment_status, weak_reason = classify_from_place(place)
 
-        # Skip "website_exists_not_target" if search targets no_website only
-        if search.target == "no_website" and lead_type.value == "website_exists_not_target":
+        if not matches_target(search.target, lead_type):
             continue
 
         company_data = {

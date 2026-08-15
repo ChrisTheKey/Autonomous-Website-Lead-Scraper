@@ -33,6 +33,21 @@ def classify_from_place(place: PlaceResult) -> tuple[LeadType, EnrichmentStatus,
     return LeadType.weak_website_candidate, EnrichmentStatus.website_found, None
 
 
+def matches_target(target: str, lead_type: LeadType) -> bool:
+    """
+    Whether a classified place belongs in the results for a given search target.
+
+    A place with its own domain is classified as weak_website_candidate until
+    quality analysis runs, so a no_website search must filter on the lead type
+    rather than assume every unanalysed site is a candidate.
+    """
+    if target == "no_website":
+        return lead_type == LeadType.no_website_candidate
+    if target == "weak_website":
+        return lead_type == LeadType.weak_website_candidate
+    return True  # "all", and any unknown target, keeps every classification
+
+
 def normalize_domain(url: str | None) -> str | None:
     if not url:
         return None

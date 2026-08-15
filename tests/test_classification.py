@@ -5,7 +5,11 @@ from unittest.mock import MagicMock
 
 from app.models.enums import EnrichmentStatus, LeadType
 from app.services.places_service import PlaceResult
-from app.services.website_detection_service import classify_from_place, normalize_domain
+from app.services.website_detection_service import (
+    classify_from_place,
+    matches_target,
+    normalize_domain,
+)
 
 
 def _make_place(website_uri: str | None = None, business_status: str = "OPERATIONAL") -> PlaceResult:
@@ -70,6 +74,51 @@ class TestWeakWebsiteClassification:
         # Before quality analysis, classified as weak candidate pending analysis
         assert lead_type == LeadType.weak_website_candidate
         assert enrichment_status == EnrichmentStatus.website_found
+
+
+class TestTargetSemantics:
+    def test_no_website_target_keeps_no_website_candidate(self):
+        assert matches_target("no_website", LeadType.no_website_candidate)
+
+    def test_no_website_target_rejects_weak_candidate(self):
+        assert not matches_target("no_website", LeadType.weak_website_candidate)
+
+    def test_no_website_target_rejects_unanalysed_own_domain(self):
+        # Regression: an own domain is weak_website_candidate until analysed
+        # and must not be stored for a no_website search.
+        place = _make_place(website_uri="https://test-gmbh.ch")
+        lead_type, _, _ = classify_from_place(place)
+        assert not matches_target("no_website", lead_type)
+
+    def test_no_website_target_rejects_social_only_site(self):
+        place = _make_place(website_uri="https://www.facebook.com/testgmbh")
+        lead_type, _, _ = classify_from_place(place)
+        assert not matches_target("no_website", lead_type)
+
+    def test_no_website_target_keeps_place_without_website(self):
+        place = _make_place(website_uri=None)
+        lead_type, _, _ = classify_from_place(place)
+        assert matches_target("no_website", lead_type)
+
+    def test_weak_website_target_keeps_weak_candidate(self):
+        assert matches_target("weak_website", LeadType.weak_website_candidate)
+
+    def test_weak_website_target_rejects_no_website_candidate(self):
+        assert not matches_target("weak_website", LeadType.no_website_candidate)
+
+    def test_weak_website_target_keeps_unanalysed_own_domain(self):
+        # The weak path is exactly the population the analysis pipeline triages.
+        place = _make_place(website_uri="https://test-gmbh.ch")
+        lead_type, _, _ = classify_from_place(place)
+        assert matches_target("weak_website", lead_type)
+
+    def test_all_target_keeps_every_lead_type(self):
+        for lead_type in LeadType:
+            assert matches_target("all", lead_type)
+
+    def test_unknown_target_keeps_everything(self):
+        assert matches_target("something_else", LeadType.no_website_candidate)
+        assert matches_target("something_else", LeadType.weak_website_candidate)
 
 
 class TestNormalizeDomain:
