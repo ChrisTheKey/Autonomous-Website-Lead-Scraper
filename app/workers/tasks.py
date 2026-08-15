@@ -30,11 +30,13 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
     worker_prefetch_multiplier=1,
+    # Keys must match the registered task names below, not the module path —
+    # the explicit name= argument overrides the dotted path.
     task_routes={
-        "app.workers.tasks.run_search_task": {"queue": "search"},
-        "app.workers.tasks.crawl_company_task": {"queue": "crawl"},
-        "app.workers.tasks.analyse_website_task": {"queue": "analyse"},
-        "app.workers.tasks.refresh_company_task": {"queue": "refresh"},
+        "run_search_task": {"queue": "search"},
+        "crawl_company_task": {"queue": "crawl"},
+        "analyse_website_task": {"queue": "analyse"},
+        "refresh_company_task": {"queue": "refresh"},
     },
 )
 
