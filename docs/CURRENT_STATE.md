@@ -1,13 +1,17 @@
 # Current State
 
 Rolling project checkpoint. Update this file when the state changes.
-Last verified: 2026-08-15.
+Last verified: 2026-08-16.
 
-## Current head
+## Verified code baseline
 
-- Commit `4dc538ca81aad4747b03e4c99d1512ad76fd24bb`
+- Commit `21a2e11ffce85354bd1c47d89d29170c60f8622a`
 - Branch `giuliano/lead-scraper-development`
-- Working tree clean, local and remote in sync
+
+This is the last commit whose product code was verified by execution. Later
+commits may exist that only update state documentation such as this file — a
+newer `git HEAD` is therefore expected and does not invalidate anything below.
+Product behaviour was last proven at the baseline above.
 
 ## Current phase
 
@@ -67,6 +71,50 @@ Read from the live database, read-only:
 Containers running: postgres, redis, api, worker-search, worker-crawl,
 worker-analyse. Not running: flower, migrate.
 
+## Engineering infrastructure
+
+Committed to the repository, so every session and machine gets it:
+
+- `CLAUDE.md` — how to work here (stable).
+- `docs/CURRENT_STATE.md` — this file, where the project stands (moving).
+- `.claude/skills/codebase-memory/` — structural code queries over a knowledge
+  graph instead of broad grep. Documents the MCP tool surface only.
+- `.claude/skills/loop-engineering/` — designing and reviewing autonomous agent
+  loops. Its four `references/` files load on demand, not into initial context.
+
+Both skills are vendored byte-identical from upstream (MIT), committed and
+pushed. `evals/` was deliberately excluded.
+
+### Local development environment (Giuliano's Windows machine only)
+
+Not part of the repository and not portable — a fresh clone on another machine
+has the skills but none of the following:
+
+- `codebase-memory-mcp` **v0.10.4** installed at
+  `%LOCALAPPDATA%\Programs\codebase-memory-mcp\codebase-memory-mcp.exe`
+- Pinned to the audited upstream commit `c0bd4bb`: release tag `v0.10.4` points
+  exactly at it. `releases/latest` already serves v0.10.5 and was **not** used.
+- The release asset's SHA-256 was verified against the tag's `checksums.txt`
+  before extraction, and the archive contents were checked against the
+  installer's own allowlist. Only the binary was extracted.
+- Build provenance was **not** verified — the Sigstore/SLSA bundles ship with
+  the release, but neither `gh` nor `cosign` is installed. Release integrity is
+  proven; "compiled from that source" is not.
+- MCP configured in **local/project scope** only: `~/.claude.json` under
+  `projects["C:/Users/Bucherer/Autonomous-Website-Lead-Scraper"].mcpServers`,
+  one entry `codebase-memory` pointing at the absolute binary path. A timestamped
+  backup of that config was taken first; a structural diff confirmed exactly one
+  added key.
+- Deliberately **not** done: no global hooks, no global skills, no global agent
+  files, no `~/.claude/settings.json`, no PATH change, no Codex configuration.
+  The upstream installer would have written 15 files across Claude Code and
+  Codex; it was never run.
+- The repository is **not indexed yet**, and no MCP tool has been called.
+
+The long-running session that set this up had already started before the MCP
+entry existed, so it never loaded the server. **A fresh session is required**
+before `codebase-memory` is available.
+
 ## Known open issues
 
 Confirmed by inspection or execution. No hypothetical entries.
@@ -117,14 +165,27 @@ Confirmed by inspection or execution. No hypothetical entries.
 
 ## Next goal
 
-1. **Improve engineering and token infrastructure** — integrate and test
-   codebase memory plus loop engineering, so future sessions start with less
-   context cost.
-2. **Second controlled single-website test**, on a company with a classic
+The engineering infrastructure is in place; the next steps exercise it.
+
+1. **End the long session and open a fresh one** in this repository, using only
+   `CLAUDE.md` and this file as project memory.
+2. **Test the MCP connection.** `list_projects` and `index_status` are the
+   cheapest checks; both should report that nothing is indexed yet.
+3. **Index the repository once** with codebase-memory.
+4. **Verify the graph against the source** on architecture relationships already
+   known from this session — for example that `dedupe_service` imports
+   `write_audit` from `compliance_service` while `compliance_service` imports
+   only from `normalization` (no cycle), that `crawl_company_task` dispatches
+   `analyse_website_task`, and that `run_search` calls `matches_target`. If the
+   graph disagrees with the source, trust the source.
+5. **Second controlled single-website test**, on a company with a classic
    multi-page site, to show the crawl budget reclaimed by the fragment fix and
    to produce the first non-zero weak-website signal set.
+6. **Watch context and tool usage** during that test as the first efficiency
+   benchmark for the new loop.
 
-Both workers need `--force-recreate` before that test so they load `4dc538c`.
+Before step 5, `worker-crawl` and `worker-analyse` need `--force-recreate` so
+they load the current code.
 
 ## Important decisions
 
