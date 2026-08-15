@@ -189,6 +189,15 @@ Boundaries kept intact:
 
 ---
 
+## Docs
+
+- [`docs/scrapling-guide-de.md`](docs/scrapling-guide-de.md) — external guide (German) on the
+  Scrapling MCP scraping tool. Reference material only: it is not installed, not wired into the
+  pipeline, and parts of it (Cloudflare bypass, LinkedIn/Indeed scraping) conflict with the
+  boundaries listed under *What Is Deliberately NOT Implemented* above.
+
+---
+
 ## Compliance Architecture
 
 Every action (verify, reject, contact, suppress, export) writes to `audit_logs`.
