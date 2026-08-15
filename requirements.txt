@@ -46,6 +46,8 @@ playwright>=1.44.0
 
 # ── AI Web Scraping ───────────────────────────────────────────────────────────
 scrapegraphai>=1.29.0
+scrapling>=0.4.14
+curl-cffi>=0.7.0
 
 # Dev / Test
 pytest>=8.0.0

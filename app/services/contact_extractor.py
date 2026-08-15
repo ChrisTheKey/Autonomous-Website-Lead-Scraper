@@ -146,9 +146,11 @@ async def extract_contact(
     company_name: str = "",
     anthropic_api_key: str = "",
     timeout: int = 30,
+    use_scrapling: bool = True,
 ) -> ContactResult:
     """
     Hauptfunktion: holt Website-Seiten und extrahiert Kontaktdaten.
+    Verwendet Scrapling für präziseres CSS/XPath-Parsing und Anti-Bot-Bypass.
     """
     if not url:
         return ContactResult()
@@ -162,37 +164,46 @@ async def extract_contact(
     except Exception:
         pass
 
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-
-    base = url.rstrip("/")
-    pages_to_try = [base] + [base + p for p in CONTACT_PATHS]
-
     email = vorname = nachname = rolle = ""
     combined_text = ""
 
-    async with httpx.AsyncClient(
-        verify=False,
-        follow_redirects=True,
-        timeout=10,
-        headers={"User-Agent": "Mozilla/5.0 (compatible; LeadBot/1.0)"},
-    ) as client:
-        for page_url in pages_to_try[:5]:  # max 5 Seiten
-            html = await fetch_page(client, page_url)
-            if not html:
-                continue
+    if use_scrapling:
+        # Scrapling-Pfad: zuverlässigere mailto/tel-Erkennung + sauberer Text
+        try:
+            from app.services.scrapling_service import scrape_contact_pages
+            email, _phone, combined_text = await scrape_contact_pages(
+                url, max_pages=5, use_stealth=False
+            )
+        except Exception as e:
+            log.debug("scrapling_fallback", error=str(e))
+            use_scrapling = False
 
-            text = html_to_text(html)
-            combined_text += "\n" + text
+    if not use_scrapling or not combined_text.strip():
+        # httpx-Fallback
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
 
-            if not email:
-                email = await extract_email_simple(text)
+        base = url.rstrip("/")
+        pages_to_try = [base] + [base + p for p in CONTACT_PATHS]
 
-            await asyncio.sleep(0.3)
-
-            if email and len(combined_text) > 2000:
-                break  # Genug Material für Claude
+        async with httpx.AsyncClient(
+            verify=False,
+            follow_redirects=True,
+            timeout=10,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; LeadBot/1.0)"},
+        ) as client:
+            for page_url in pages_to_try[:5]:
+                html = await fetch_page(client, page_url)
+                if not html:
+                    continue
+                text = html_to_text(html)
+                combined_text += "\n" + text
+                if not email:
+                    email = await extract_email_simple(text)
+                await asyncio.sleep(0.3)
+                if email and len(combined_text) > 2000:
+                    break
 
     # Name via Claude extrahieren
     if anthropic_api_key and combined_text.strip():
