@@ -6,6 +6,7 @@ from app.services.crawler_service import (
     _is_blocked_path,
     _is_priority_path,
     _robots_allows,
+    canonical_resource_url,
 )
 from urllib.robotparser import RobotFileParser
 
@@ -41,6 +42,85 @@ class TestPathPriority:
 
     def test_random_page_not_priority(self):
         assert not _is_priority_path("https://example.com/products/123")
+
+
+class TestFragmentCanonicalisation:
+    def test_plain_url_is_unchanged(self):
+        assert canonical_resource_url("https://example.ch/") == "https://example.ch/"
+
+    def test_hash_fragment_is_dropped(self):
+        assert canonical_resource_url("https://example.ch/#kontakt") == "https://example.ch/"
+
+    def test_hashbang_fragment_is_dropped(self):
+        assert canonical_resource_url("https://example.ch/#!/kontakt") == "https://example.ch/"
+
+    def test_different_fragments_collapse_to_one_resource(self):
+        variants = [
+            "https://example.ch/",
+            "https://example.ch/#kontakt",
+            "https://example.ch/#content",
+            "https://example.ch/#!/referenzen",
+            "https://example.ch/#!/uberuns",
+        ]
+        assert len({canonical_resource_url(u) for u in variants}) == 1
+
+    def test_fragment_on_subpage_is_dropped(self):
+        assert (
+            canonical_resource_url("https://example.ch/kontakt#team")
+            == "https://example.ch/kontakt"
+        )
+
+    def test_distinct_paths_stay_distinct(self):
+        pages = {
+            canonical_resource_url("https://example.ch/kontakt"),
+            canonical_resource_url("https://example.ch/impressum"),
+        }
+        assert len(pages) == 2
+
+    def test_query_string_is_preserved(self):
+        assert (
+            canonical_resource_url("https://example.ch/suche?q=maler")
+            == "https://example.ch/suche?q=maler"
+        )
+
+    def test_distinct_query_strings_are_not_merged(self):
+        pages = {
+            canonical_resource_url("https://example.ch/p?id=1"),
+            canonical_resource_url("https://example.ch/p?id=2"),
+        }
+        assert len(pages) == 2
+
+    def test_query_kept_while_fragment_dropped(self):
+        assert (
+            canonical_resource_url("https://example.ch/p?id=1#top")
+            == "https://example.ch/p?id=1"
+        )
+
+    def test_host_and_scheme_are_untouched(self):
+        assert (
+            canonical_resource_url("http://sub.example.ch/a#x") == "http://sub.example.ch/a"
+        )
+
+    def test_page_budget_not_consumed_by_fragment_duplicates(self):
+        # The ten URLs the crawler actually stored for company 1: two real
+        # resources, eight fragment variants of them.
+        observed = [
+            "https://witschimalerei.ch/",
+            "https://witschimalerei.ch/impressum",
+            "https://witschimalerei.ch/impressum#!/kontakt",
+            "https://witschimalerei.ch/impressum#!/referenzen",
+            "https://witschimalerei.ch/impressum#!/uberuns",
+            "https://witschimalerei.ch/impressum#content",
+            "https://witschimalerei.ch/#content",
+            "https://witschimalerei.ch/#!/uberuns",
+            "https://witschimalerei.ch/#!/referenzen",
+            "https://witschimalerei.ch/impressum#elementor-action%3Aaction%3Dpopup",
+        ]
+        assert len({canonical_resource_url(u) for u in observed}) == 2
+
+    def test_stored_url_carries_no_fragment(self):
+        for url in ("https://example.ch/#a", "https://example.ch/p?q=1#b"):
+            assert "#" not in canonical_resource_url(url)
 
 
 class TestBlockedPaths:

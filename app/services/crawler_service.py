@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urldefrag, urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 
 import httpx
@@ -34,6 +34,17 @@ _BLOCKED_PATHS = [
     "login", "admin", "cart", "checkout", "warenkorb", "kasse",
     "shop/cart", "account", "captcha", "wp-admin",
 ]
+
+
+def canonical_resource_url(url: str) -> str:
+    """
+    The URL as the HTTP layer sees it.
+
+    A fragment is never sent to the server, so /page, /page#kontakt and
+    /page#!/kontakt are all the same resource and must be fetched once. Only the
+    fragment is dropped — scheme, host, path and query stay untouched.
+    """
+    return urldefrag(url)[0]
 
 
 class CrawlResult:
@@ -55,6 +66,7 @@ class CrawlResult:
 async def crawl_website(base_url: str) -> list[CrawlResult]:
     if not base_url.startswith("http"):
         base_url = f"https://{base_url}"
+    base_url = canonical_resource_url(base_url)
 
     parsed = urlparse(base_url)
     origin = f"{parsed.scheme}://{parsed.netloc}"
@@ -100,7 +112,7 @@ async def crawl_website(base_url: str) -> list[CrawlResult]:
                 if resp.status_code == 200 and len(results) < settings.max_pages_per_domain:
                     soup = BeautifulSoup(resp.text, "lxml")
                     for link in soup.find_all("a", href=True):
-                        href = urljoin(url, link["href"])
+                        href = canonical_resource_url(urljoin(url, link["href"]))
                         if href.startswith(origin) and href not in visited:
                             if _is_priority_path(href):
                                 queue.insert(0, href)  # priority at front
