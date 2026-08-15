@@ -48,7 +48,12 @@ def run_search_task(self, search_id: int) -> dict:
 
 @celery_app.task(bind=True, name="crawl_company_task", max_retries=3)
 def crawl_company_task(self, company_id: int) -> dict:
-    return asyncio.run(_crawl_company(company_id))
+    result = asyncio.run(_crawl_company(company_id))
+    # Chain into analysis only once the crawl actually persisted pages. A raised
+    # exception never reaches this point, and an early return carries "error".
+    if not result.get("error"):
+        analyse_website_task.delay(company_id)
+    return result
 
 
 @celery_app.task(bind=True, name="analyse_website_task", max_retries=2)
