@@ -6,7 +6,15 @@ from sqlalchemy import pool
 
 from alembic import context
 
+from app.config import settings
+
 config = context.config
+
+# Migrations must target the same database as the application, so the URL comes
+# from the app settings (environment-aware) rather than from alembic.ini, whose
+# hardcoded localhost value was wrong inside Docker. ConfigParser reads "%" as
+# interpolation syntax, so it has to be escaped.
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
