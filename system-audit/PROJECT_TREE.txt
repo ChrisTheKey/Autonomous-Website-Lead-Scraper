@@ -1,0 +1,165 @@
+PROJEKT-STRUKTUR (bereinigt)
+Stand: 2026-08-16 | Branch: claude/scrapegraphai-integration-check-wdq9b9
+Ausgeschlossen: .git, node_modules, __pycache__, .venv, .next, *_cache, dist, build
+==============================================================================
+
+Autonomous-Website-Lead-Scraper/
+├── .github/
+│   └── workflows/
+│       └── ci.yml  (862 B)
+├── alembic/
+│   ├── versions/
+│   │   └── 0001_initial_schema.py  (8,827 B)
+│   ├── env.py  (1,742 B)
+│   └── script.py.mako  (592 B)
+├── app/
+│   ├── api/
+│   │   ├── __init__.py  (0 B)
+│   │   ├── candidates.py  (1,657 B)
+│   │   ├── companies.py  (2,367 B)
+│   │   ├── exports.py  (1,323 B)
+│   │   ├── reviews.py  (3,316 B)
+│   │   └── searches.py  (1,646 B)
+│   ├── models/
+│   │   ├── __init__.py  (644 B)
+│   │   ├── audit_log.py  (825 B)
+│   │   ├── company.py  (4,041 B)
+│   │   ├── contact.py  (1,709 B)
+│   │   ├── crawled_page.py  (956 B)
+│   │   ├── enums.py  (1,432 B)
+│   │   ├── place_candidate.py  (2,073 B)
+│   │   ├── search.py  (1,351 B)
+│   │   └── suppression.py  (869 B)
+│   ├── schemas/
+│   │   ├── __init__.py  (0 B)
+│   │   ├── company.py  (1,507 B)
+│   │   ├── contact.py  (479 B)
+│   │   ├── export.py  (435 B)
+│   │   └── search.py  (806 B)
+│   ├── services/
+│   │   ├── __init__.py  (0 B)
+│   │   ├── compliance_service.py  (4,687 B)
+│   │   ├── crawler_service.py  (4,923 B)
+│   │   ├── dedupe_service.py  (3,159 B)
+│   │   ├── export_service.py  (2,299 B)
+│   │   ├── extractor_service.py  (4,116 B)
+│   │   ├── places_service.py  (5,679 B)
+│   │   ├── scoring_service.py  (2,521 B)
+│   │   ├── search_orchestrator.py  (4,990 B)
+│   │   ├── website_detection_service.py  (1,624 B)
+│   │   └── website_quality_service.py  (4,472 B)
+│   ├── workers/
+│   │   ├── __init__.py  (0 B)
+│   │   └── tasks.py  (9,872 B)
+│   ├── __init__.py  (0 B)
+│   ├── config.py  (1,165 B)
+│   ├── database.py  (752 B)
+│   └── main.py  (10,698 B)
+├── backend/
+│   ├── alembic/
+│   │   ├── versions/
+│   │   │   └── 0001_initial_schema.py  (2,022 B)
+│   │   ├── env.py  (1,445 B)
+│   │   └── script.py.mako  (594 B)
+│   ├── app/
+│   │   ├── ai/
+│   │   │   ├── __init__.py  (0 B)
+│   │   │   ├── extractor.py  (2,681 B)
+│   │   │   ├── langchain_chain.py  (1,743 B)
+│   │   │   ├── llama_index_search.py  (1,325 B)
+│   │   │   ├── maps_client.py  (1,894 B)
+│   │   │   ├── openai_agents.py  (1,514 B)
+│   │   │   ├── pydantic_ai_agent.py  (1,011 B)
+│   │   │   └── scrapegraph_client.py  (9,395 B)
+│   │   ├── api/
+│   │   │   ├── routes/
+│   │   │   │   ├── __init__.py  (0 B)
+│   │   │   │   ├── ai_extract.py  (646 B)
+│   │   │   │   ├── crm.py  (830 B)
+│   │   │   │   ├── google_maps.py  (632 B)
+│   │   │   │   ├── leads.py  (2,002 B)
+│   │   │   │   ├── scrapegraph.py  (2,477 B)
+│   │   │   │   └── scraper.py  (1,011 B)
+│   │   │   └── __init__.py  (0 B)
+│   │   ├── browser/
+│   │   │   ├── __init__.py  (0 B)
+│   │   │   └── playwright_client.py  (2,584 B)
+│   │   ├── core/
+│   │   │   ├── __init__.py  (0 B)
+│   │   │   ├── config.py  (1,556 B)
+│   │   │   ├── database.py  (528 B)
+│   │   │   └── redis_client.py  (401 B)
+│   │   ├── crm/
+│   │   │   ├── __init__.py  (0 B)
+│   │   │   ├── hubspot.py  (2,042 B)
+│   │   │   ├── pipedrive.py  (2,521 B)
+│   │   │   └── salesforce.py  (2,546 B)
+│   │   ├── models/
+│   │   │   ├── __init__.py  (0 B)
+│   │   │   └── lead.py  (2,239 B)
+│   │   ├── scrapers/
+│   │   │   ├── spiders/
+│   │   │   │   ├── __init__.py  (0 B)
+│   │   │   │   └── lead_spider.py  (2,247 B)
+│   │   │   ├── __init__.py  (0 B)
+│   │   │   ├── middlewares.py  (474 B)
+│   │   │   ├── pipelines.py  (1,220 B)
+│   │   │   └── settings.py  (629 B)
+│   │   ├── tasks/
+│   │   │   ├── __init__.py  (0 B)
+│   │   │   ├── celery_app.py  (719 B)
+│   │   │   ├── crm_tasks.py  (991 B)
+│   │   │   ├── enrich_tasks.py  (1,648 B)
+│   │   │   └── scrape_tasks.py  (4,116 B)
+│   │   ├── workflows/
+│   │   │   ├── __init__.py  (0 B)
+│   │   │   ├── lead_workflow.py  (3,431 B)
+│   │   │   └── worker.py  (838 B)
+│   │   ├── __init__.py  (0 B)
+│   │   └── main.py  (1,247 B)
+│   ├── dags/
+│   │   └── lead_pipeline_dag.py  (4,205 B)
+│   ├── tests/
+│   │   └── test_scrapegraph_client.py  (8,355 B)
+│   ├── Dockerfile  (365 B)
+│   ├── alembic.ini  (619 B)
+│   ├── dashboard.py  (4,435 B)
+│   ├── pyproject.toml  (3,638 B)
+│   └── requirements.txt  (1,067 B)
+├── docs/
+│   └── scrapling-guide-de.md  (7,282 B)
+├── frontend/
+│   ├── app/
+│   │   ├── globals.css  (59 B)
+│   │   ├── layout.tsx  (756 B)
+│   │   ├── page.tsx  (504 B)
+│   │   └── providers.tsx  (333 B)
+│   ├── components/
+│   │   ├── LeadTable.tsx  (3,920 B)
+│   │   ├── MapsSearch.tsx  (2,914 B)
+│   │   └── ScrapeForm.tsx  (2,180 B)
+│   ├── lib/
+│   │   ├── api.ts  (1,390 B)
+│   │   └── utils.ts  (169 B)
+│   ├── Dockerfile  (445 B)
+│   ├── package.json  (944 B)
+│   ├── tailwind.config.ts  (279 B)
+│   └── tsconfig.json  (562 B)
+├── tests/
+│   ├── __init__.py  (0 B)
+│   ├── conftest.py  (1,302 B)
+│   ├── test_classification.py  (3,551 B)
+│   ├── test_compliance.py  (3,349 B)
+│   ├── test_crawler.py  (2,055 B)
+│   ├── test_dedupe.py  (1,377 B)
+│   ├── test_extractor.py  (3,495 B)
+│   ├── test_places_service.py  (2,458 B)
+│   ├── test_scoring.py  (3,840 B)
+│   └── test_suppression.py  (1,393 B)
+├── .env.example  (2,270 B)
+├── .gitignore  (411 B)
+├── Dockerfile  (374 B)
+├── README.md  (8,299 B)
+├── alembic.ini  (621 B)
+├── docker-compose.yml  (2,465 B)
+└── requirements.txt  (481 B)
