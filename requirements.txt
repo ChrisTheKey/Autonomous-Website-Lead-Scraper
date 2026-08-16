@@ -23,6 +23,10 @@ alembic>=1.13.0
 redis[hiredis]>=5.0.0
 celery[redis]>=5.4.0
 
+# Monitoring
+# Provides the `celery flower` subcommand used by the flower compose service.
+flower>=2.0.0
+
 # Logging
 structlog>=24.4.0
 

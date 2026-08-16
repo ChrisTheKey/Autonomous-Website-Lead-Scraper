@@ -1,5 +1,3 @@
-version: "3.9"
-
 x-app-env: &app-env
   DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/lead_discovery
   REDIS_URL: redis://redis:6379/0
