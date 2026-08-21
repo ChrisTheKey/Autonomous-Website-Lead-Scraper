@@ -61,19 +61,38 @@ def action_health(invocation: Invocation) -> Outcome:
     scoring_ok, scoring_error = _scoring_available()
     # Healthy means "ZERO can invoke me and I will do real work". Scoring is the
     # floor for that, because it needs nothing external.
-    ok = bool(probe.get("config")) and scoring_ok
     missing = []
-    if not probe.get("google_places_key"):
-        missing.append("GOOGLE_MAPS_API_KEY (search_leads unavailable)")
+    if not probe.get("config"):
+        # The usual cause is pydantic not being installed — on Android under
+        # Termux it needs a Rust toolchain to build. Naming it matters: without
+        # this the agent reported DEGRADED with no reason an operator could act
+        # on, and `analyse` still works, so "degraded" is the accurate word.
+        missing.append(f"app config unavailable: {probe.get('detail') or 'unknown'}")
+    elif not probe.get("google_places_key"):
+        missing.append("GOOGLE_MAPS_API_KEY unset (search_leads unavailable)")
     if not scoring_ok:
         missing.append(f"scoring rules unimportable: {scoring_error}")
+
+    # Scoring is the floor: an agent that can score is an agent ZERO can use.
+    # Configuration only gates the actions that actually need it.
+    ok = scoring_ok
+    usable = ["health", "capabilities", "analyse", "prepare_outreach"] if scoring_ok else []
+    if probe.get("config") and probe.get("google_places_key"):
+        usable.append("search_leads")
+
     return Outcome(
         ok=ok,
         summary=(
-            "lead scraper ready" + (f"; degraded: {', '.join(missing)}" if missing else "")
+            "lead scraper ready" if not missing
+            else f"lead scraper degraded: {'; '.join(missing)}"
         ),
-        data={"status": "HEALTHY" if ok else "DEGRADED", "probe": probe, "missing": missing,
-              "actions": list(ACTIONS)},
+        data={
+            "status": "HEALTHY" if (ok and not missing) else ("DEGRADED" if ok else "ERROR"),
+            "probe": probe,
+            "missing": missing,
+            "actions": list(ACTIONS),
+            "usable_actions": usable,
+        },
     )
 
 

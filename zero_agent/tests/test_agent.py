@@ -56,7 +56,46 @@ def test_the_agent_answers_a_health_invocation() -> None:
     code, result = run_agent({"action": "health", "mission_id": "T"})
     assert code == 0
     assert result["ok"] is True
-    assert result["data"]["status"] == "HEALTHY"
+    assert result["data"]["status"] in {"HEALTHY", "DEGRADED"}
+    # Scoring is the floor: whatever else is missing, these are usable.
+    assert "analyse" in result["data"]["usable_actions"]
+
+
+def test_degraded_health_always_names_what_is_missing() -> None:
+    """DEGRADED with no reason is a status an operator cannot act on."""
+    _code, result = run_agent({"action": "health"})
+    if result["data"]["status"] == "DEGRADED":
+        assert result["data"]["missing"], "degraded without a reason"
+        assert all(entry.strip() for entry in result["data"]["missing"])
+        assert result["summary"].startswith("lead scraper degraded:")
+
+
+def test_analysis_survives_a_missing_configuration_layer(monkeypatch) -> None:
+    """On Termux pydantic needs a Rust toolchain, so app.config may be absent.
+
+    The scoring path must not care: it loads two dependency-free modules
+    directly, and an agent that can score is an agent ZERO can use.
+    """
+    from zero_agent import actions
+
+    monkeypatch.setattr(
+        actions, "_probe", lambda: {"config": False, "detail": "No module named 'pydantic'"}
+    )
+    health = actions.dispatch(Invocation(action="health"))
+    assert health.ok is True
+    assert health.data["status"] == "DEGRADED"
+    assert "pydantic" in health.data["missing"][0]
+    assert "analyse" in health.data["usable_actions"]
+    assert "search_leads" not in health.data["usable_actions"]
+
+    scored = actions.dispatch(
+        Invocation(
+            action="analyse",
+            payload={"candidates": [{"name": "X", "lead_type": "no_website_candidate"}]},
+        )
+    )
+    assert scored.ok is True
+    assert scored.data["count"] == 1
 
 
 def test_the_result_is_the_last_stdout_line_even_with_log_noise() -> None:

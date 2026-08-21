@@ -183,6 +183,14 @@ pip install pytest pyyaml pydantic pydantic-settings
 python -m pytest -q zero_agent/tests        # no Postgres, no Redis, no Celery
 ```
 
+### On a phone (Termux)
+
+`analyse`, `capabilities` and `prepare_outreach` run under Termux with nothing
+installed but Python and this repository — `zero_agent/pure.py` is what makes
+that true. `pydantic` needs a Rust toolchain on Android, so `app.config` is
+usually absent there; the agent reports `DEGRADED`, names that as the reason,
+and lists `usable_actions` so ZERO knows what it can still be asked for.
+
 ### It says what it cannot do
 
 An action whose prerequisite is missing returns `unavailable` and exit code 3 —
