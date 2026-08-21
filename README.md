@@ -135,6 +135,70 @@ Export is blocked unless `status = verified` AND `can_export = true`.
 
 ---
 
+## As a ZERO child agent
+
+This repository is a child agent of **HWD-ZERO**, the operator. ZERO decides when
+it runs, with what input, and under which permissions.
+
+```
+HWD-ZERO
+└── Autonomous-Website-Lead-Scraper   department: acquisition
+```
+
+`agent.yaml` is the manifest ZERO reads. `zero_agent/` is the surface it invokes:
+one JSON invocation on stdin, one JSON object as the last line of stdout.
+
+```bash
+echo '{"action":"health"}' | python -m zero_agent
+echo '{"action":"analyse","payload":{"candidates":[
+  {"name":"Umzug Bern GmbH","lead_type":"no_website_candidate",
+   "has_phone":true,"has_address":true}]}}' | python -m zero_agent
+```
+
+| action | capability | does |
+| --- | --- | --- |
+| `health` | `repo.read` | reports which subsystems are configured |
+| `capabilities` | `repo.read` | lists the actions it supports |
+| `analyse` | `repo.read` | scores candidates with this repository's real rules |
+| `search_leads` | `network.read` | a live Places search |
+| `persist_leads` | `database.write` | writes scored leads — **approval-gated** |
+| `prepare_outreach` | `repo.read` | drafts outreach, never sends |
+
+### It runs without the database layer
+
+`zero_agent/pure.py` loads `app/models/enums.py` and
+`app/services/scoring_service.py` directly from their files. Both are
+dependency-free, but `app/models/__init__.py` eagerly imports every ORM model, so
+a normal import would pull SQLAlchemy, asyncpg and the whole database layer into
+memory just to score a list. On a laptop that is also running a model, that is
+the wrong trade. The loader fails loudly if either module ever gains a real
+dependency, so this cannot rot silently.
+
+That is why `zero_agent/tests/` has its own conftest: `tests/conftest.py` builds
+a live Postgres schema in a session-scoped autouse fixture, and inheriting it
+would make "runs without the database layer" untestable.
+
+```bash
+pip install pytest pyyaml pydantic pydantic-settings
+python -m pytest -q zero_agent/tests        # no Postgres, no Redis, no Celery
+```
+
+### It says what it cannot do
+
+An action whose prerequisite is missing returns `unavailable` and exit code 3 —
+distinct from a failure, and never accompanied by placeholder data.
+`search_leads` without `GOOGLE_MAPS_API_KEY` returns *no* candidates rather than
+plausible ones, and ZERO records the reason and continues with the steps that can
+run. Invented leads would be worse than none, because they would be acted on.
+
+### Permissions
+
+`network.write` and `external.message` always require the operator's explicit
+approval. `persist_leads` uses `database.write`, which is granted but not
+autonomous, so ZERO raises a permission gate before it runs. `prepare_outreach`
+drafts and never sends; sending is a separate, gated capability this agent does
+not hold.
+
 ## Running Tests
 
 ```bash
