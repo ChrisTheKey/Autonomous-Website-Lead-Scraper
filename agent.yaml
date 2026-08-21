@@ -1,0 +1,51 @@
+# ZERO child-agent manifest.
+#
+# HWD-ZERO reads this to learn how to run this repository. The operator's
+# agents/child-agents.yaml is still the authority on what this agent is *allowed*
+# to do — capabilities listed here are intersected with that grant, never added
+# to it. Listing something here that the operator did not grant is recorded as a
+# rejected claim and changes nothing.
+id: lead_scraper
+display_name: Autonomous Website Lead Scraper
+parent: zero
+department: acquisition
+
+runtime: python
+execution_adapter: python_module
+entry_point: zero_agent/__main__.py
+
+# What this agent asks ZERO for. `network.read` covers the Places API and the
+# ethical crawler; nothing here writes to an external system.
+capabilities:
+  - repo.read
+  - network.read
+  - database.read
+  - database.write
+  - tests.run
+
+# Never without the operator, whatever the global policy says.
+requires_approval_for:
+  - network.write
+  - external.message
+
+timeout_seconds: 900
+
+actions:
+  - id: health
+    description: Report which subsystems are configured and reachable
+    capability: repo.read
+  - id: capabilities
+    description: List the actions this agent supports
+    capability: repo.read
+  - id: analyse
+    description: Score supplied candidates with the real scoring rules (no database needed)
+    capability: repo.read
+  - id: search_leads
+    description: Run a Google Places search and classify the results
+    capability: network.read
+  - id: persist_leads
+    description: Write scored leads to the lead database (approval-gated)
+    capability: database.write
+  - id: prepare_outreach
+    description: Draft outreach for scored leads — prepared only, never sent
+    capability: repo.read
